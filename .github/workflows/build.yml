@@ -41,7 +41,7 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path build\aimp_mediacontrol.dll, README.md -DestinationPath "build\aimp_mediacontrol-${{ steps.version.outputs.value }}.zip" -Force
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: aimp-mediacontrol
           path: build/aimp_mediacontrol-*.zip
