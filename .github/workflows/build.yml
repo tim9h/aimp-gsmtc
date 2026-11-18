@@ -20,18 +20,31 @@ jobs:
           install: mingw-w64-x86_64-gcc
           path-type: inherit
 
+      - name: Set build version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "VERSION must contain a SemVer major.minor.patch value; got '$version'"
+          }
+          if ($env:GITHUB_REF -eq 'refs/heads/develop') {
+            $version = "$version-dev.$env:GITHUB_RUN_NUMBER"
+          }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
       - name: Build plugin and test tools
         shell: pwsh
         run: .\build.ps1
 
       - name: Package plugin
         shell: pwsh
-        run: Compress-Archive -Path build\aimp_mediacontrol.dll, README.md -DestinationPath build\aimp_mediacontrol.zip -Force
+        run: Compress-Archive -Path build\aimp_mediacontrol.dll, README.md -DestinationPath "build\aimp_mediacontrol-${{ steps.version.outputs.value }}.zip" -Force
 
       - uses: actions/upload-artifact@v4
         with:
           name: aimp-mediacontrol
-          path: build/aimp_mediacontrol.zip
+          path: build/aimp_mediacontrol-*.zip
           if-no-files-found: error
 
   release:
@@ -41,13 +54,25 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Read release version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "VERSION must contain a SemVer major.minor.patch value; got '$version'"
+          }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
       - uses: actions/download-artifact@v4
         with:
           name: aimp-mediacontrol
 
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.${{ github.run_number }}
-          name: AIMP Media Control v0.1.${{ github.run_number }}
+          tag_name: v${{ steps.version.outputs.value }}
+          name: AIMP Media Control v${{ steps.version.outputs.value }}
           body: Automated release from the master branch.
-          files: aimp_mediacontrol.zip
+          files: aimp_mediacontrol-*.zip
